@@ -132,7 +132,7 @@ KILL_THEM_ALL=""
 combined_opts() {
     while getopts "hfmpu" opt; do
       case $opt in
-        h) usage exit;;
+        h) usage; exit;;
         f) FOREST="1";;
         m) ONLY_MY="1";;
         p) ONLY_PROCNAME="1";;
@@ -144,7 +144,7 @@ combined_opts() {
 # for single and long opts
 while [ $# -gt 0 ]; do
     case "$1" in
-        (-h|--help) usage exit; ;;
+        (-h|--help) usage; exit; ;;
         (-f|--forest) FOREST="1"; shift; ;;
         (-m|--my) ONLY_MY="1"; shift; ;;
         (-p|--procname) ONLY_PROCNAME="1"; shift; ;;
