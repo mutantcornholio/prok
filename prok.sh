@@ -2,7 +2,7 @@
 
 prok_main() {
     local pids
-    local ps_mods=""
+    local ps_mods="u" # ps -u
     local pgrep_params
 
     pgrep_params="$(gen_pgrep_params)"
@@ -37,10 +37,6 @@ prok_main() {
         pids="$temp_pids"
     fi
 
-    if [ -n "$PS_U" ]; then
-        ps_mods+="u"
-    fi
-
     if [[ -n "$FOREST" && "$(uname)" == "Linux" ]]; then
         ps_mods+="f"
     fi
@@ -55,7 +51,11 @@ prok_main() {
     fi
 
     if [ -n "$KILL_THEM_ALL" ]; then
-        echo -n "Kill each of these processes"
+        if [ ! -z "$SIGNAL" ]; then
+            echo -n "Kill each of these processes (with $SIGNAL)"
+        else
+            echo -n "Kill each of these processes"
+        fi
 
         if [ -n "$FOREST" ]; then
             echo -n "(whole tree)"
@@ -68,9 +68,12 @@ prok_main() {
         if [[ "$KILL_THEM_ALL" = "y" ||  "$KILL_THEM_ALL" = "yes" ]]; then
             # word splitting is intended
             # shellcheck disable=SC2086
-            kill $pids
-
-            echo "Killed"
+            if [ ! -z "$SIGNAL" ]; then
+                kill "$SIGNAL" $pids
+            else
+                kill $pids
+            fi
+            echo "Executed"
         else
             echo "Abort"
         fi
@@ -105,17 +108,19 @@ proctree () {
 usage() {
     echo "Prok: easy process grep with ps output"
     echo
-    echo "Usage: prok [--user <USERNAME>] [--uid <UID>] [-fmpu] [<PATTERN>]"
+    echo "Usage: prok [--user <USERNAME>] [--uid <UID>] [-fmp] [-(1|2|3|9)] [--SIG<SIGNAL>] [<PATTERN>]"
     echo
     echo "Parameters:"
     echo "    -f --forest         print parents of all matched PID's."
     echo "                            On linux prints with 'ps f'"
     echo "    -m --my             match only processes of current user"
-    echo "    -p --procname       match only process name, not full command line"
-    echo "    -u                  print output in 'ps u' style"
+    echo "    -p --procname       match only executable, not full command"
     echo "    --user USERNAME     match only processes of USERNAME"
     echo "    --uid UID           match only processes of UID(numeric)"
-    echo "    --kill              ask to kill all matched processes."
+    echo
+    echo "    --kill              ask to kill all matched processes"
+    echo "    --SIG<SIGNAL>       do killing with this signal. e.g. --SIGKILL"
+    echo "    -1 -2 -3 -9         do killing with signal's numeric alias"
     echo "                            Be cautious with -f option, it'll bring whole forest down"
     echo
 }
@@ -126,29 +131,31 @@ ONLY_PROCNAME=""
 MATCH_UID=""
 MATCH_USERNAME=""
 PATTERN=""
-PS_U=""
 KILL_THEM_ALL=""
+SIGNAL=""
 
 combined_opts() {
-    while getopts "hfmpu" opt; do
+    while getopts "hfmp" opt; do
       case $opt in
         h) usage; exit;;
         f) FOREST="1";;
         m) ONLY_MY="1";;
         p) ONLY_PROCNAME="1";;
-        u) PS_U="1";;
+        *) ;;
       esac
     done
 }
 
 # for single and long opts
 while [ $# -gt 0 ]; do
+
     case "$1" in
         (-h|--help) usage; exit; ;;
         (-f|--forest) FOREST="1"; shift; ;;
         (-m|--my) ONLY_MY="1"; shift; ;;
         (-p|--procname) ONLY_PROCNAME="1"; shift; ;;
-        (-u) PS_U="1"; shift; ;;
+        (-1|-2|-3|-9) SIGNAL="$1"; shift ;;
+        (--SIG*) SIGNAL="-${1:5}"; shift ;;
         (--uid) MATCH_UID="$2"; shift 2; ;;
         (--user) MATCH_USERNAME="$2"; shift 2; ;;
         (--kill) KILL_THEM_ALL="1"; shift; ;;
